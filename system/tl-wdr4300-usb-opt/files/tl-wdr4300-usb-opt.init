@@ -1,0 +1,27 @@
+#!/bin/sh /etc/rc.common
+
+START=98
+STOP=98
+
+start() {
+	if [ ! -d /mnt/usb ] ; then
+		/bin/mkdir /mnt/usb
+	fi
+	if [ ! -d /opt ] ; then
+		/bin/mkdir /opt
+	fi
+	/bin/mount -t vfat /dev/sda1 /mnt/usb
+	LOOPDEV="$(losetup -f)"
+	/usr/sbin/losetup "${LOOPDEV}" /mnt/usb/tl-wdr4300.ext3.img
+	/bin/mount -t ext3 "${LOOPDEV}" /opt
+	/bin/grep -F -q "/opt/usr/bin" /etc/profile
+	if [ $? -ne 0 ]; then
+		/bin/cat /usr/share/tl-wdr4300-usb-opt.tmpl >> /etc/profile
+	fi
+}
+
+stop() {
+	/bin/sync
+	# /dev/loop0 mounted on /opt must be unmounted first
+	/bin/umount /opt
+}

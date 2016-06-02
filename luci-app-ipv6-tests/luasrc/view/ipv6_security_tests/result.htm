@@ -1,0 +1,31 @@
+<%
+	-- IPv6 security tests luci result frontend 
+	--
+	-- Copyright (c) 2015 Brno University of Technology
+	--
+	-- Author(s): Jan Dražil <xdrazi00@stud.fit.vutbr.cz>
+	--
+	
+    local detected = 1
+	write("Command: ".. command .."\n")
+	write("----------OUTPUT----------\n")
+	for line in cmd_out:lines() do
+		if string.find(line, "detected") then
+			detected = 2
+		elseif string.find(line, "exception") then
+			detected=99
+		end
+		write(line .."\n")
+	end
+	write("----------RESULT----------\n")
+	
+	if detected == 1 then
+		write("Your network is SECURED against ".. attack .." attack!\n")
+	elseif detected == 2 then
+		write("Your network is VULNERABLE against ".. attack .." attack!\n")
+	else
+		write("Test ends with errors. Try different combination of input/output interfaces. ")
+	end
+	result_file:write(tostring(detected))
+	result_file:close()
+%>

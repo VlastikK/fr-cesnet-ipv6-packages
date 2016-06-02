@@ -1,0 +1,344 @@
+<%+header%>
+
+<!--
+-- IPv6 security tests luci frontend for NCP
+--
+-- Copyright (c) 2015 Brno University of Technology
+--
+-- Author(s): Jan Dražil <xdrazi00@stud.fit.vutbr.cz>
+--
+-->
+
+<script type="text/javascript" src="/luci-static/resources/cbi.js"></script>
+<script type="text/javascript">
+	
+	xhr = new XHR();
+	
+	function showres(xhttp) {
+		document.getElementById("attack-output-area").value = xhttp.responseText
+		xhr.get("<%=luci.http.getenv("REQUEST_URI")%>", {"getresult" : true}, showShortRes)
+	}
+	
+	function showShortRes(xhttp) {
+		shortResult = document.getElementById("short-result")
+		if(xhttp.responseText == "1") {
+			shortResult.style.background = "#7DEF7D"
+			shortResult.style.borderColor = "#0C970C"
+			shortResult.innerHTML = '<img src="/luci-static/resources/ipv6-attacks-icons/secured.png" /> Your network is <b>SECURED</b> against <%=attack%> attack!'
+		} else if (xhttp.responseText == "2"){
+			shortResult.style.background = "#FFD3D3"
+			shortResult.style.borderColor = "#C30707"
+			shortResult.innerHTML = '<img src="/luci-static/resources/ipv6-attacks-icons/unsecured.png" /> Your network is <b>VULNERABLE</b> against <%=attack%> attack!'
+		} else {
+			shortResult.style.background = "#E8F7AA"
+			shortResult.style.borderColor = "#5E7308"
+			shortResult.innerHTML = 'Unexpected error! Try different interfaces.'
+		}
+	}
+	
+	function send() {
+		if(cbi_validate_form(document.getElementById("attack-form"), 'Some fields are invalid, cannot save values!')) {
+			document.getElementById("attack-output-area").value = "Running..."
+			
+			shortResult = document.getElementById("short-result")
+			shortResult.style.background = "#f5f5f5"
+			shortResult.style.borderColor = "#ddd"
+			shortResult.innerHTML = '<img src="/luci-static/resources/icons/loading.gif" /> Running...'
+			
+			document.getElementById("short-result-container").style.display = "block"
+			xhr.send_form(document.getElementById("attack-form"), showres)
+			window.scrollTo(0, 0)
+			
+		}
+		return false;
+	}
+	
+	xhr.send_form = function(form,callback,extra_values)
+	{
+		var code = '';
+
+		for (var i = 0; i < form.elements.length; i++)
+		{
+			var e = form.elements[i];
+			
+			if(e.type == "checkbox")
+			{
+				if(!e.checked)
+					continue
+			}
+
+			if (e.options)
+			{
+				code += (code ? '&' : '') +
+					form.elements[i].name + '=' + encodeURIComponent(
+						e.options[e.selectedIndex].value
+					);
+			}
+			else if (e.length)
+			{
+				for (var j = 0; j < e.length; j++)
+					if (e[j].name) {
+						code += (code ? '&' : '') +
+							e[j].name + '=' + encodeURIComponent(e[j].value);
+					}
+			}
+			else
+			{
+				code += (code ? '&' : '') +
+					e.name + '=' + encodeURIComponent(e.value);
+			}
+		}
+
+		if (typeof extra_values == 'object')
+			for (var key in extra_values)
+				code += (code ? '&' : '') +
+					key + '=' + encodeURIComponent(extra_values[key]);
+
+		return(
+			(form.method == 'get')
+				? this.get(form.getAttribute('action'), code, callback)
+				: this.post(form.getAttribute('action'), code, callback)
+		);
+	}
+</script>
+
+<style type="text/css">
+	#short-result-container {
+		display: none;
+	}
+	
+	#short-result {
+		background: #f5f5f5;
+		margin-bottom: 18px;
+		padding: 17px 20px 18px 20px;
+		border: 1px solid #ddd;
+		-webkit-border-radius: 5px;
+		-moz-border-radius: 5px;
+		border-radius: 5px;
+	}
+	
+	#short-result img {
+		vertical-align: middle;
+		margin: 0 10px 0 0;
+	}
+</style>
+
+
+<h2><a>IPv6 Security Test - NCP</a></h2>
+<div class="cbi-map-descr">
+	Neighbor Cache Poison (NCP) is attack exploiting address resolution in the IPv6.
+	In this test you can create a packet which associate IPv6 address of victim's neighbor to any MAC address whatever you want. The created packet is known as Neighbor Advertisement (NA) message.
+	Finally NA message created in this way can lead to MitM attack. The well configured switch should this RA message identify and drop it.
+	After you connect output and test interface into switch, you can send NA message packet. If you receive the packet on test interface then your switch is vulnerable.
+</div>
+
+<div id="short-result-container">
+	<h3><a>Test results</a></h3>
+	<div id="short-result">
+	</div>
+</div>
+
+<form method="post" action="#" onsubmit="return send()" id="attack-form">
+	<script type="text/javascript" src="/luci-static/resources/cbi.js"></script>
+	<fieldset class=cbi-section-node>
+		<legend>Required parameters</legend>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Output</label>
+			<div class="cbi-value-field">
+				<select type="text" name="form.output" onchange="cbi_d_update(this.id)" id="form.output" class="cbi-value-text">
+<%
+				for index,ifc in pairs(ifcs) do
+				write("					<option value=\"".. ifc .."\">".. ifc .."</option>\n")
+				end
+%>
+				</select><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Outgoing interface for test packets.
+				</div>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Test</label>
+			<div class="cbi-value-field">
+				<select type="text" name="form.test" onchange="cbi_d_update(this.id)" id="form.output" class="cbi-value-text">
+<%
+				for index,ifc in pairs(ifcs) do
+				write("					<option value=\"".. ifc .."\">".. ifc .."</option>\n")
+				end
+%>
+				</select><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Incoming interface for response of tested network.
+				</div>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Destination MAC</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.dest_mac" id="form.dest_mac" onchange="cbi_d_update(this.id)" class="cbi-value-text" value="<%=form.dest_mac%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Destination MAC address used in crafted packets (victim's MAC address).
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.dest_mac', false, 'macaddr');
+				</script>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Destination IP</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.dest_ip" id="form.dest_ip" onchange="cbi_d_update(this.id)" class="cbi-value-text" value="<%=form.dest_ip%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Destination IPv6 address address used in crafted packets (victim's IPv6 address).
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.dest_ip', false, 'ip6addr');
+				</script>
+			</div>
+		</div>
+		<div class="cbi-value" id="form-ip">
+			<label class="cbi-value-title">Target IP</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.target_ip" id="form.target_ip" onchange="cbi_d_update(this.id)" class="cbi-value-text"  value="<%=form.target_ip%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					The IPv6 address that will be paired with link-layer address on victim's computer.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.target_ip', false, 'ip6addr');
+				</script>
+			</div>
+		</div>
+		
+		<div class="cbi-value" id="form-r-flag">
+			<label class="cbi-value-title">R-flag</label>
+			<div class="cbi-value-field">
+				<input type="checkbox" name="form.r_flag" id="form.r_flag" onchange="cbi_d_update(this.id)" class="cbi-value-text"  value="1" <% if form.r_flag then print("checked=\"checked\"") end %> />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Router flag – when set, it indicates that the sender of the message is a router.
+				</div>
+			</div>
+		</div>
+		
+		<div class="cbi-value" id="form-s-flag">
+			<label class="cbi-value-title">S-flag</label>
+			<div class="cbi-value-field">
+				<input type="checkbox" name="form.s_flag" id="form.s_flag" onchange="cbi_d_update(this.id)" class="cbi-value-text"  value="1" <% if form.s_flag then print("checked=\"checked\"") end %> />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Solicited flag – when set, it indicates that this Neighbor Advertisement message is being sent as a response to previously received NS message.
+				</div>
+			</div>
+		</div>
+		
+		<div class="cbi-value" id="form-o-flag">
+			<label class="cbi-value-title">O-flag</label>
+			<div class="cbi-value-field">
+				<input type="checkbox" name="form.o_flag" id="form.o_flag" onchange="cbi_d_update(this.id)" class="cbi-value-text"  value="1" <% if form.o_flag then print("checked=\"checked\"") end %> />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Override flag – when set, it indicates that this Neighbor Advertisement message should update existing Neighbor Cache entry. If this flag is not set and the Neighbor Cache does not contain any entry for this IP address, one should be created anyway.
+				</div>
+			</div>
+		</div>
+	</fieldset>
+	<fieldset class=cbi-section-node>
+		<legend>Optional parameters</legend>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Timeout</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.timeout" id="form.timeout" onchange="cbi_d_update(this.id)" class="cbi-value-text" value="<%=form.timeout%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Maximal time in seconds for waiting to incoming packets.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.timeout', true, 'uinteger');
+				</script>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Source MAC</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.source_mac" id="form.source_mac" onchange="cbi_d_update(this.id)" class="cbi-value-text" value="<%=form.source_mac%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Source MAC address used in crafted packets.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.source_mac', true, 'macaddr');
+				</script>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Source IP</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.source_ip" id="form.source_ip" onchange="cbi_d_update(this.id)" class="cbi-value-text" value="<%=form.source_ip%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Source IPv6 address address used in crafted packets.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.source_ip', true, 'ip6addr');
+				</script>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Number of extension headers</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.ext_num" id="form.ext_num" onchange="cbi_d_update(this.id)" class="cbi-value-text"  value="<%=form.ext_num%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Number of empty Destination Options extension headers in packet. Some network devices let pass through packets with higher count of extension headers (ca. 10).
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.ext_num', true, 'uinteger');
+				</script>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Maximal size of MTU</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.max_mtu" id="form.max_mtu" onchange="cbi_d_update(this.id)" class="cbi-value-text"  value="<%=form.max_mtu%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Specify MTU used for attack packets (if this value is filled then it enable fragmentation). Some switches can let pass fragmented packets.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.max_mtu', true, 'uinteger');
+				</script>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Source link-layer address</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.sll_address" id="form.sll_address" onchange="cbi_d_update(this.id)" class="cbi-value-text"  value="<%=form.sll_address%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Link-layer address of router’s sending interface. Its presence alleviates further communication in such a way that router’s link-layer address will not need to be additionally resolved.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.sll_address', true, 'macaddr');
+				</script>
+			</div>
+		</div>
+		
+		
+		<div class="cbi-page-actions">
+			<input class="cbi-button cbi-button-apply" type="submit" name="form.run" value="Run" />
+		</div>
+		
+	</fieldset>
+	<script type="text/javascript">cbi_d_update();</script>
+</form>
+
+<div id="attack-output">
+	<h3><a>Full output log</a></h3>
+	<textarea id="attack-output-area" readonly="readonly" style="width: 100%" rows="25"></textarea>
+</div>
+<%+footer%>

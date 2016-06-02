@@ -1,0 +1,493 @@
+<%+header%>
+
+<!--
+-- IPv6 security tests luci frontend for RRA
+--
+-- Copyright (c) 2015 Brno University of Technology
+--
+-- Author(s): Jan Dražil <xdrazi00@stud.fit.vutbr.cz>
+--
+-->
+
+<script type="text/javascript" src="/luci-static/resources/cbi.js"></script>
+<script type="text/javascript">
+	
+	xhr = new XHR();
+	
+	function showres(xhttp) {
+		document.getElementById("attack-output-area").value = xhttp.responseText
+		xhr.get("<%=luci.http.getenv("REQUEST_URI")%>", {"getresult" : true}, showShortRes)
+	}
+	
+	function showShortRes(xhttp) {
+		shortResult = document.getElementById("short-result")
+		if(xhttp.responseText == "1") {
+			shortResult.style.background = "#7DEF7D"
+			shortResult.style.borderColor = "#0C970C"
+			shortResult.innerHTML = '<img src="/luci-static/resources/ipv6-attacks-icons/secured.png" /> Your network is <b>SECURED</b> against <%=attack%> attack!'
+		} else if (xhttp.responseText == "2"){
+			shortResult.style.background = "#FFD3D3"
+			shortResult.style.borderColor = "#C30707"
+			shortResult.innerHTML = '<img src="/luci-static/resources/ipv6-attacks-icons/unsecured.png" /> Your network is <b>VULNERABLE</b> against <%=attack%> attack!'
+		} else {
+			shortResult.style.background = "#E8F7AA"
+			shortResult.style.borderColor = "#5E7308"
+			shortResult.innerHTML = 'Unexpected error! Try different interfaces.'
+		}
+	}
+	
+	function send() {
+		if(cbi_validate_form(document.getElementById("attack-form"), 'Some fields are invalid, cannot save values!')) {
+			document.getElementById("attack-output-area").value = "Running..."
+			
+			shortResult = document.getElementById("short-result")
+			shortResult.style.background = "#f5f5f5"
+			shortResult.style.borderColor = "#ddd"
+			shortResult.innerHTML = '<img src="/luci-static/resources/icons/loading.gif" /> Running...'
+			
+			document.getElementById("short-result-container").style.display = "block"
+			xhr.send_form(document.getElementById("attack-form"), showres)
+			window.scrollTo(0, 0)
+			
+		}
+		return false;
+	}
+	
+	xhr.send_form = function(form,callback,extra_values)
+	{
+		var code = '';
+
+		for (var i = 0; i < form.elements.length; i++)
+		{
+			var e = form.elements[i];
+			
+			if(e.type == "checkbox")
+			{
+				if(!e.checked)
+					continue
+			}
+
+			if (e.options)
+			{
+				code += (code ? '&' : '') +
+					form.elements[i].name + '=' + encodeURIComponent(
+						e.options[e.selectedIndex].value
+					);
+			}
+			else if (e.length)
+			{
+				for (var j = 0; j < e.length; j++)
+					if (e[j].name) {
+						code += (code ? '&' : '') +
+							e[j].name + '=' + encodeURIComponent(e[j].value);
+					}
+			}
+			else
+			{
+				code += (code ? '&' : '') +
+					e.name + '=' + encodeURIComponent(e.value);
+			}
+		}
+
+		if (typeof extra_values == 'object')
+			for (var key in extra_values)
+				code += (code ? '&' : '') +
+					key + '=' + encodeURIComponent(extra_values[key]);
+
+		return(
+			(form.method == 'get')
+				? this.get(form.getAttribute('action'), code, callback)
+				: this.post(form.getAttribute('action'), code, callback)
+		);
+	}
+</script>
+
+<style type="text/css">
+	#short-result-container {
+		display: none;
+	}
+	
+	#short-result {
+		background: #f5f5f5;
+		margin-bottom: 18px;
+		padding: 17px 20px 18px 20px;
+		border: 1px solid #ddd;
+		-webkit-border-radius: 5px;
+		-moz-border-radius: 5px;
+		border-radius: 5px;
+	}
+	
+	#short-result img {
+		vertical-align: middle;
+		margin: 0 10px 0 0;
+	}
+</style>
+
+<h2><a name="content">IPv6 Security Test - RRA</a></h2>
+<div class="cbi-map-descr">
+	Router Discovery is a mechanism that hosts use to locate neighboring routers. The routers announce their presence using Router Advertisement (RA) messages.
+	In this test you can send your own crafted RA, where you can declare yourself (or any other device in network) as default gateway.
+	This attack is commonly known as Rough Router Advertisement (RRA). The well configured switch should RRA packet identify and drop it.
+	After you connect output and test interface into switch, you can send RRA packet. If you receive the packet on test interface then your switch is vulnerable.
+</div>
+
+<div id="short-result-container">
+	<h3><a>Test results</a></h3>
+	<div id="short-result">
+	</div>
+</div>
+
+<form method="post" action="#" onsubmit="return send()" id="attack-form">
+	<fieldset class=cbi-section-node>
+		<legend>Required parameters</legend>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Output</label>
+			<div class="cbi-value-field">
+				<select type="text" name="form.output" onchange="cbi_d_update(this.id)" id="form.output" class="cbi-value-text">
+<%
+				for index,ifc in pairs(ifcs) do
+				write("					<option value=\"".. ifc .."\">".. ifc .."</option>\n")
+				end
+%>
+				</select><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Outgoing interface for test packets.
+				</div>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Test</label>
+			<div class="cbi-value-field">
+				<select type="text" name="form.test" onchange="cbi_d_update(this.id)" id="form.output" class="cbi-value-text">
+<%
+				for index,ifc in pairs(ifcs) do
+				write("					<option value=\"".. ifc .."\">".. ifc .."</option>\n")
+				end
+%>
+				</select><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Incoming interface for response of tested network.
+				</div>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Destination MAC</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.dest_mac" onchange="cbi_d_update(this.id)" id="form.dest_mac" class="cbi-value-text" value="<%=form.dest_mac%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Destination MAC address used in crafted packets.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.dest_mac', false, 'macaddr');
+				</script>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Destination IP</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.dest_ip" onchange="cbi_d_update(this.id)" id="form.dest_ip" class="cbi-value-text" value="<%=form.dest_ip%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Destination IPv6 address address used in crafted packets.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.dest_ip', false, 'ip6addr');
+				</script>
+			</div>
+		</div>
+	</fieldset>
+	<fieldset class=cbi-section-node>
+		<legend>Optional parameters</legend>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Timeout</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.timeout" onchange="cbi_d_update(this.id)" id="form.timeout" class="cbi-value-text" value="<%=form.timeout%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Maximal time in seconds for waiting to incoming packets.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.timeout', true, 'uinteger');
+				</script>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Source MAC</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.source_mac" onchange="cbi_d_update(this.id)" id="form.source_mac" class="cbi-value-text" value="<%=form.source_mac%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Source MAC address used in crafted packets.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.source_mac', true, 'macaddr');
+				</script>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Source IP</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.source_ip" onchange="cbi_d_update(this.id)" id="form.source_ip" class="cbi-value-text" value="<%=form.source_ip%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Source IPv6 address address used in crafted packets.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.source_ip', true, 'ip6addr');
+				</script>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Cur hop limit</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.cur_hop_limit" onchange="cbi_d_update(this.id)" id="form.cur_hop_limit" class="cbi-value-text" value="<%=form.cur_hop_limit%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					A value announced by the router that needs to be placed in the Hop Count field of IPv6 packet by hosts. Value of 0 means unspecified.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.cur_hop_limit', true, 'uinteger');
+				</script>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Router preference</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.router_pref" onchange="cbi_d_update(this.id)" id="form.router_pref" class="cbi-value-text"  value="<%=form.router_pref%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Specify priority of route when host is choosing gateway for packet. Expected number from 1 to 3, where 1 is lowest priority and 3 is highest.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.router_pref', true, 'range(1,3)');
+				</script>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Router lifetime</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.router_lifetime" onchange="cbi_d_update(this.id)" id="form.router_lifetime" class="cbi-value-text"  value="<%=form.router_lifetime%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					A value from 0 to 9000 in seconds. This value inform host how long is the router willing behave as the default router.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.router_lifetime', true, 'range(0,9000)');
+				</script>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Reachable time</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.reachable_time" onchange="cbi_d_update(this.id)" id="form.reachable_time" class="cbi-value-text"  value="<%=form.reachable_time%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					A value from 0 to 3600000 in milliseconds.  This value inform host how long is router reachable from the point in time when it receive reachability confirmation.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.reachable_time', true, 'range(0,3600000)');
+				</script>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Retrans timer</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.retrans_timer" onchange="cbi_d_update(this.id)" id="form.retrans_timer" class="cbi-value-text"  value="<%=form.retrans_timer%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					A value in milliseconds between retransmitting neighbors solicit packet.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.reachable_time', true, 'uinteger');
+				</script>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Number of extension headers</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.ext_num" onchange="cbi_d_update(this.id)" id="form.ext_num" class="cbi-value-text"  value="<%=form.ext_num%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Number of empty Destination Options extension headers in packet. Some network devices let pass through packets with higher count of extension headers (ca. 10).
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.ext_num', true, 'uinteger');
+				</script>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Maximal size of MTU</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.max_mtu" onchange="cbi_d_update(this.id)" id="form.max_mtu" class="cbi-value-text"  value="<%=form.max_mtu%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Specify MTU used for attack packets (if this value is filled then it enable fragmentation). Some switches can let pass fragmented packets.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.max_mtu', true, 'uinteger');
+				</script>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Source link-layer address</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.sll_address" onchange="cbi_d_update(this.id)" id="form.sll_address" class="cbi-value-text"  value="<%=form.sll_address%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Link-layer address of router’s sending interface. Its presence alleviates further communication in such a way that router’s link-layer address will not need to be additionally resolved.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.sll_address', true, 'macaddr');
+				</script>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Advertised MTU</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.adv_mtu" onchange="cbi_d_update(this.id)" id="form.adv_mtu" class="cbi-value-text"  value="<%=form.adv_mtu%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					A value of MTU that should be respected by all hosts receiving this RA message.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.adv_mtu', true, 'uinteger');
+				</script>
+			</div>
+		</div>
+		<div class="cbi-value">
+			<label class="cbi-value-title">Advertised prefix</label>
+			<div class="cbi-value-field">
+				<input type="checkbox" name="form.adv_prefix" onchange="cbi_d_update(this.id)" id="form.adv_prefix" class="cbi-value-checkbox" value="1" <% if form.adv_prefix then print("checked=\"checked\"") end %>/>
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Set router advertisement for concrete IPv6 subnet. If not specified than source IP address is considered as default gateway for all communication.
+				</div>
+			</div>
+		</div>
+
+		<div class="cbi-value" id="form-prefix">
+			<label class="cbi-value-title">Prefix</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.prefix" onchange="cbi_d_update(this.id)" id="form.prefix" class="cbi-value-text"  value="<%=form.prefix%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					IPv6 address or prefix.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.prefix', true, 'ip6addr');
+				</script>
+			</div>
+		</div>
+		<script type="text/javascript" id="script-prefix-1">
+			cbi_d_add("form-prefix", {"form.adv_prefix":"1"}, "script-prefix-1");
+		</script>
+		
+		<div class="cbi-value" id="form-length">
+			<label class="cbi-value-title">Length</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.length" onchange="cbi_d_update(this.id)" id="form.length" class="cbi-value-text"  value="<%=form.length%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Prefix Length – a value from interval < 0, 128 > that indicates how many leading bits from Prefix field are valid.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.length', true, 'range(0,128)');
+				</script>
+			</div>
+		</div>
+		<script type="text/javascript" id="script-prefix-2">
+			cbi_d_add("form-length", {"form.adv_prefix":"1"}, "script-prefix-2");
+		</script>
+		
+		<div class="cbi-value" id="form-lflag">
+			<label class="cbi-value-title">L-flag</label>
+			<div class="cbi-value-field">
+				<input type="checkbox" name="form.l_flag" onchange="cbi_d_update(this.id)" id="form.l_flag" class="cbi-value-text"  value="1" <% if form.l_flag then print("checked=\"checked\"") end %> />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					On-link flag – when set, it indicates that this prefix can be considered as on-link. However, if this flag is not set, it means that the advertising router
+				</div>
+			</div>
+		</div>
+		<script type="text/javascript" id="script-prefix-3">
+			cbi_d_add("form-lflag", {"form.adv_prefix":"1"}, "script-prefix-3");
+		</script>
+		
+		<div class="cbi-value" id="form-aflag">
+			<label class="cbi-value-title">A-flag</label>
+			<div class="cbi-value-field">
+				<input type="checkbox" name="form.a_flag" onchange="cbi_d_update(this.id)" id="form.a_flag" class="cbi-value-text"  value="1" <% if form.a_flag then print("checked=\"checked\"") end %>" />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Autonomous Address Configuration flag – when set, it indicates that this prefix can be used for SLAAC.
+				</div>
+			</div>
+		</div>
+		<script type="text/javascript" id="script-prefix-4">
+			cbi_d_add("form-aflag", {"form.adv_prefix":"1"}, "script-prefix-4");
+		</script>
+		
+		<div class="cbi-value" id="form-rflag">
+			<label class="cbi-value-title">R-flag</label>
+			<div class="cbi-value-field">
+				<input type="checkbox" name="form.r_flag" onchange="cbi_d_update(this.id)" id="form.r_flag" class="cbi-value-text" value="1" <% if form.r_flag then print("checked=\"checked\"") end %>/>
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					Router flag – when set, it indicates that the sender of the message is a router.
+				</div>
+			</div>
+		</div>
+		<script type="text/javascript" id="script-prefix-5">
+			cbi_d_add("form-rflag", {"form.adv_prefix":"1"}, "script-prefix-5");
+		</script>
+		
+		<div class="cbi-value" id="form-vlifetime">
+			<label class="cbi-value-title">Valid lifetime</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.valid_lifetime" onchange="cbi_d_update(this.id)" id="form.valid_lifetime" class="cbi-value-text"  value="<%=form.valid_lifetime%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					A value in seconds that represents for how long this prefix is supposed to be valid. Value of 4294967295 represents infinity.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.valid_lifetime', true, 'range(0,4294967295)');
+				</script>
+			</div>
+		</div>
+		<script type="text/javascript" id="script-prefix-6">
+			cbi_d_add("form-vlifetime", {"form.adv_prefix":"1"}, "script-prefix-6");
+		</script>
+		
+		<div class="cbi-value" id="form-plifetime">
+			<label class="cbi-value-title">Prefered lifetime</label>
+			<div class="cbi-value-field">
+				<input type="text" name="form.pref_lifetime" onchange="cbi_d_update(this.id)" id="form.pref_lifetime" class="cbi-value-text"  value="<%=form.pref_lifetime%>" /><br />
+				<div class="cbi-value-description">
+					<span class="cbi-value-helpicon"><img src="/luci-static/resources/cbi/help.gif" alt="help" /></span>
+					A value in seconds that represents for how long an address generated from this prefix should be considered as preffered and must not be higher than Valid Lifetime. Value of 4294967295 represents infinity.
+				</div>
+				<script type="text/javascript">
+					cbi_validate_field('form.pref_lifetime', true, 'range(0,4294967295)');
+				</script>
+			</div>
+		</div>
+		<script type="text/javascript" id="script-prefix-7">
+			cbi_d_add("form-plifetime", {"form.adv_prefix":"1"}, "script-prefix-7");
+		</script>
+
+		<div class="cbi-page-actions">
+			<input class="cbi-button cbi-button-apply" type="submit" name="form.run" id="form.run" value="Run" />
+		</div>
+	</fieldset>
+	<script type="text/javascript">cbi_d_update();</script>
+</form>
+
+<div id="attack-output">
+	<h3><a>Full output log</a></h3>
+	<textarea id="attack-output-area" readonly="readonly" style="width: 100%" rows="25"></textarea>
+</div>
+
+<%+footer%>
