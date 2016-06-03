@@ -23,6 +23,7 @@ Tested on TP-LINK WDR4300. Note, that routers with small internal flash (such as
 The Turris OS is based on Openwrt so the compilation process is simillar.
 
 #### Original Turris
+
     1. Download repository of TurrisOS: `git clone https://gitlab.labs.nic.cz/turris/openwrt.git`
     2. Download repository of the project:`git clone https://github.com/VlastikK/fr-cesnet-ipv6-packages.git`
     3. Copy configuration of package feeds: `cp openwrt/feeds.conf.default openwrt/feeds.conf`
@@ -41,6 +42,7 @@ The Turris OS is based on Openwrt so the compilation process is simillar.
    14. To add the packages persistently just copy the configuration bask to default configuration: `cp .config configs/config-turris-nand`
 
 #### Omnia
+
     1. Download repository of TurrisOS: `git clone https://gitlab.labs.nic.cz/turris/openwrt.git`
     2. Download repository of the project:`git clone https://github.com/VlastikK/fr-cesnet-ipv6-packages.git`
     3. Copy configuration of package feeds: `cp openwrt/feeds.conf.default openwrt/feeds.conf`
